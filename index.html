@@ -588,18 +588,35 @@
     <div class="fert-cal-scope" id="fertCalRoot">
       <div class="container">
         <div class="subheader">
-          <h1>Vista mensual del ciclo</h1>
-          <span class="meta">Inicio de menstruación: sábado 12 · ciclos habituales de 30–32 días</span>
+          <h1>👶 ¡Vamos a ser papás!</h1>
+          <span class="meta">Concepción estimada: 22 de septiembre de 2026 · historial de ciclo abajo</span>
         </div>
 
         <div class="tabs">
-          <div class="tab active" data-target="fert-view-calendario">Calendario</div>
+          <div class="tab active" data-target="fert-view-embarazo">Embarazo</div>
+          <div class="tab" data-target="fert-view-calendario">Calendario</div>
           <div class="tab" data-target="fert-view-resumen">Resumen</div>
           <div class="tab" data-target="fert-view-ventana">Ventana fértil</div>
           <div class="tab" data-target="fert-view-tips">Tips</div>
         </div>
 
-        <div class="f-view active" id="fert-view-calendario">
+        <div class="f-view active" id="fert-view-embarazo">
+          <div class="f-card">
+            <div class="f-card-header">Fecha estimada de parto <span class="f-badge" id="fertDiasRestantes"></span></div>
+            <div class="f-card-body">
+              <div class="stat-row"><span class="label">Fecha probable de parto</span><span class="value" id="fertFPP" style="font-size:16px;color:var(--f-accent);"></span></div>
+              <div class="stat-row"><span class="label">Concepción estimada</span><span class="value" id="fertConcepcion"></span></div>
+              <div class="stat-row"><span class="label">Semanas de embarazo</span><span class="value" id="fertSemanas"></span></div>
+              <div class="f-note">
+                Cálculo por la regla de los 266 días desde la concepción (equivalente a ~280 días
+                desde la última menstruación). Fecha aproximada — el control médico y la ecografía
+                son los que confirman la edad gestacional real.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="f-view" id="fert-view-calendario">
           <div class="f-card">
             <div class="f-card-header">Días del ciclo <span class="small">20 días registrados</span></div>
             <div class="f-card-body">
@@ -2149,6 +2166,33 @@ document.getElementById("nutriNextMonth").onclick = () => {
 (function(){
   const root = document.getElementById("fertCalRoot");
   if (!root) return;
+
+  // --- Embarazo: fecha estimada de parto (Víctor & Loreto) ---
+  (function renderEmbarazo(){
+    const CONCEPCION = new Date(2026, 8, 22); // 22 de septiembre de 2026
+    const FECHA_PARTO = new Date(CONCEPCION.getTime());
+    FECHA_PARTO.setDate(FECHA_PARTO.getDate() + 266); // regla de 266 días desde la concepción
+
+    const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+    const formatearFechaEs = (d) => `${d.getDate()} de ${MESES_ES[d.getMonth()]} de ${d.getFullYear()}`;
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const msDia = 24 * 60 * 60 * 1000;
+
+    const diasDesdeConcepcion = Math.floor((hoy - CONCEPCION) / msDia);
+    // Edad gestacional (convención médica: se cuenta desde la última menstruación,
+    // ~2 semanas antes de la concepción)
+    const semanasGestacionales = Math.max(0, Math.floor((diasDesdeConcepcion + 14) / 7));
+    const diasRestantes = Math.ceil((FECHA_PARTO - hoy) / msDia);
+
+    root.querySelector("#fertFPP").textContent = formatearFechaEs(FECHA_PARTO);
+    root.querySelector("#fertConcepcion").textContent = formatearFechaEs(CONCEPCION);
+    root.querySelector("#fertSemanas").textContent = diasDesdeConcepcion >= 0 ? `${semanasGestacionales} semanas` : "—";
+    root.querySelector("#fertDiasRestantes").textContent = diasRestantes > 0
+      ? `${diasRestantes} días restantes`
+      : (diasRestantes === 0 ? "¡Hoy!" : "Ya nació 🎉");
+  })();
 
   const days = [
     {d:12, wd:6, cd:1,  lvl:'m'},
