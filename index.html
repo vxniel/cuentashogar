@@ -369,6 +369,24 @@
   .fert-cal-scope .nav-btn:hover{background:var(--f-bg-canvas);border-color:var(--f-accent);}
   .fert-cal-scope ul{color:var(--f-text);}
 
+  /* ==== Lista del bebé (presupuesto) ==== */
+  .fert-cal-scope .bebe-resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:4px;}
+  .fert-cal-scope .bebe-resumen-item{background:var(--f-bg);border:1px solid var(--f-border-muted);border-radius:8px;padding:10px 12px;}
+  .fert-cal-scope .bebe-resumen-label{font-size:11px;color:var(--f-text-muted);margin-bottom:4px;}
+  .fert-cal-scope .bebe-resumen-valor{font-size:16px;font-weight:700;color:var(--f-text);}
+  .fert-cal-scope .bebe-categoria{font-size:12px;font-weight:700;color:var(--f-text-muted);letter-spacing:.03em;margin:18px 0 8px;}
+  .fert-cal-scope .bebe-categoria:first-child{margin-top:0;}
+  .fert-cal-scope .bebe-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--f-border-muted);}
+  .fert-cal-scope .bebe-item:last-child{border-bottom:none;}
+  .fert-cal-scope .bebe-check{width:17px;height:17px;flex-shrink:0;accent-color:var(--f-scale-3);cursor:pointer;}
+  .fert-cal-scope .bebe-nombre{flex:1;min-width:0;}
+  .fert-cal-scope .bebe-nombre .n{font-size:13.5px;color:var(--f-text);}
+  .fert-cal-scope .bebe-nombre .c{font-size:11.5px;color:var(--f-text-muted);margin-left:6px;}
+  .fert-cal-scope .bebe-item.comprado .bebe-nombre .n{text-decoration:line-through;color:var(--f-text-muted);}
+  .fert-cal-scope .bebe-precio{font-size:13px;color:var(--f-text);white-space:nowrap;cursor:pointer;text-decoration:underline dotted;flex-shrink:0;}
+  .fert-cal-scope .bebe-precio.estimado{color:var(--f-text-muted);font-style:italic;text-decoration:none;}
+  .fert-cal-scope .bebe-precio-input{width:88px;background:var(--f-bg);border:1px solid var(--f-accent);border-radius:5px;color:var(--f-text);padding:3px 6px;font-size:12px;text-align:right;}
+
   /* ==== Nutrición ==== */
   .nutri-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
   .nutri-month-label{font-size:15px;font-weight:800;}
@@ -594,6 +612,7 @@
 
         <div class="tabs">
           <div class="tab active" data-target="fert-view-embarazo">Embarazo</div>
+          <div class="tab" data-target="fert-view-lista-bebe">Lista del bebé</div>
           <div class="tab" data-target="fert-view-calendario">Calendario</div>
           <div class="tab" data-target="fert-view-resumen">Resumen</div>
           <div class="tab" data-target="fert-view-ventana">Ventana fértil</div>
@@ -613,6 +632,40 @@
                 son los que confirman la edad gestacional real.
               </div>
             </div>
+          </div>
+        </div>
+
+        <div class="f-view" id="fert-view-lista-bebe">
+          <div class="f-card">
+            <div class="f-card-header">Presupuesto del bebé</div>
+            <div class="f-card-body">
+              <div class="bebe-resumen">
+                <div class="bebe-resumen-item">
+                  <div class="bebe-resumen-label">Presupuesto estimado</div>
+                  <div class="bebe-resumen-valor" id="bebePresupuestoTotal"></div>
+                </div>
+                <div class="bebe-resumen-item">
+                  <div class="bebe-resumen-label">Ya comprado</div>
+                  <div class="bebe-resumen-valor" style="color:var(--f-scale-3)" id="bebeTotalComprado"></div>
+                </div>
+                <div class="bebe-resumen-item">
+                  <div class="bebe-resumen-label">Falta por comprar</div>
+                  <div class="bebe-resumen-valor" style="color:var(--f-accent)" id="bebeTotalPendiente"></div>
+                </div>
+                <div class="bebe-resumen-item">
+                  <div class="bebe-resumen-label">Ítems pendientes</div>
+                  <div class="bebe-resumen-valor" id="bebeItemsPendientes"></div>
+                </div>
+              </div>
+              <div class="f-note">
+                Precios estimados en CLP, de referencia para armar el presupuesto — tócalos para
+                ajustarlos al precio real que encuentren. Marca el check cuando ya lo compren.
+                Los ítems marcados "mensual" son gastos recurrentes, no de una sola vez.
+              </div>
+            </div>
+          </div>
+          <div class="f-card" style="margin-top:16px;">
+            <div class="f-card-body" id="bebeListaBody"></div>
           </div>
         </div>
 
@@ -2192,6 +2245,162 @@ document.getElementById("nutriNextMonth").onclick = () => {
     root.querySelector("#fertDiasRestantes").textContent = diasRestantes > 0
       ? `${diasRestantes} días restantes`
       : (diasRestantes === 0 ? "¡Hoy!" : "Ya nació 🎉");
+  })();
+
+  // --- Lista del bebé: presupuesto de cosas necesarias ---
+  (function listaBebeModulo(){
+    const LISTA_BEBE = [
+      { categoria: "Dormitorio y descanso", items: [
+        { nombre: "Cuna", cantidad: "1", precio: 120000 },
+        { nombre: "Colchón para cuna", cantidad: "1", precio: 35000 },
+        { nombre: "Set de sábanas y protector de cuna", cantidad: "1 set", precio: 18000 },
+        { nombre: "Mantas / paños de género", cantidad: "4–5", precio: 12000 },
+        { nombre: "Sacos de dormir / pijamas de verano", cantidad: "2", precio: 15000 },
+        { nombre: "Monitor de bebé (opcional)", cantidad: "1", precio: 40000 },
+      ]},
+      { categoria: "Movilidad y salidas", items: [
+        { nombre: "Coche / travel system", cantidad: "1", precio: 180000 },
+        { nombre: "Silla de auto (huevito 0–13 kg)", cantidad: "1", precio: 90000 },
+        { nombre: "Portabebé / fular ergonómico", cantidad: "1", precio: 35000 },
+        { nombre: "Bolso maternal / pañalero", cantidad: "1", precio: 25000 },
+      ]},
+      { categoria: "Alimentación", items: [
+        { nombre: "Mamaderas (set de 3)", cantidad: "1 set", precio: 15000 },
+        { nombre: "Esterilizador (microondas o eléctrico)", cantidad: "1", precio: 20000 },
+        { nombre: "Sacaleches manual", cantidad: "1", precio: 25000 },
+        { nombre: "Cojín de lactancia", cantidad: "1", precio: 20000 },
+        { nombre: "Baberos (set de 5)", cantidad: "1 set", precio: 8000 },
+        { nombre: "Fórmula de inicio (si no es lactancia exclusiva)", cantidad: "mensual", precio: 35000, mensual: true },
+      ]},
+      { categoria: "Pañales e higiene", items: [
+        { nombre: "Pañales recién nacido", cantidad: "mensual", precio: 25000, mensual: true },
+        { nombre: "Toallitas húmedas", cantidad: "mensual", precio: 6000, mensual: true },
+        { nombre: "Bañera para bebé", cantidad: "1", precio: 20000 },
+        { nombre: "Jabón y shampoo neutro para bebé", cantidad: "1 set", precio: 12000 },
+        { nombre: "Crema para pañalitis", cantidad: "1", precio: 5000 },
+        { nombre: "Termómetro digital", cantidad: "1", precio: 8000 },
+        { nombre: "Aspirador nasal", cantidad: "1", precio: 7000 },
+        { nombre: "Set de higiene (cepillo, peine, tijeras)", cantidad: "1 set", precio: 6000 },
+        { nombre: "Cambiador portátil", cantidad: "1", precio: 15000 },
+      ]},
+      { categoria: "Ropa", items: [
+        { nombre: "Body manga corta/larga", cantidad: "pack de 5", precio: 20000 },
+        { nombre: "Pijamas", cantidad: "pack de 3", precio: 25000 },
+        { nombre: "Gorros y calcetines", cantidad: "1 set", precio: 10000 },
+        { nombre: "Chaqueta / abrigo", cantidad: "1–2", precio: 18000 },
+        { nombre: "Guantes anti-rasguño", cantidad: "2 pares", precio: 5000 },
+      ]},
+      { categoria: "Lactancia (para Loreto)", items: [
+        { nombre: "Sujetadores de lactancia", cantidad: "2–3", precio: 25000 },
+        { nombre: "Discos protectores desechables", cantidad: "mensual", precio: 8000, mensual: true },
+        { nombre: "Crema para pezones", cantidad: "1", precio: 6000 },
+      ]},
+      { categoria: "Seguridad y salud", items: [
+        { nombre: "Botiquín básico del bebé", cantidad: "1", precio: 15000 },
+        { nombre: "Protectores de enchufes", cantidad: "1 set", precio: 5000 },
+        { nombre: "Cortaúñas y lima de bebé", cantidad: "1", precio: 5000 },
+      ]},
+    ];
+
+    let BEBE_COMPRADO = {};
+    let BEBE_PRECIOS = {};
+    try { BEBE_COMPRADO = JSON.parse(localStorage.getItem("hogar_bebe_comprado") || "{}"); } catch (e) { BEBE_COMPRADO = {}; }
+    try { BEBE_PRECIOS = JSON.parse(localStorage.getItem("hogar_bebe_precios") || "{}"); } catch (e) { BEBE_PRECIOS = {}; }
+
+    const guardarComprado = () => {
+      try { localStorage.setItem("hogar_bebe_comprado", JSON.stringify(BEBE_COMPRADO)); } catch (e) {}
+    };
+    const guardarPrecios = () => {
+      try { localStorage.setItem("hogar_bebe_precios", JSON.stringify(BEBE_PRECIOS)); } catch (e) {}
+    };
+
+    const claveBebe = (cat, it) => `${cat.categoria}|${it.nombre}`;
+    const clpBebe = (n) => new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(n);
+
+    function activarEdicionPrecioBebe(spanEl, key, valorActual){
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.step = "1";
+      input.value = valorActual != null ? valorActual : "";
+      input.className = "bebe-precio-input";
+      spanEl.replaceWith(input);
+      input.focus();
+      input.select();
+
+      const confirmar = () => {
+        const val = input.value.trim();
+        const num = val === "" ? null : parseInt(val, 10);
+        if (num == null) delete BEBE_PRECIOS[key];
+        else BEBE_PRECIOS[key] = num;
+        guardarPrecios();
+        renderListaBebe();
+      };
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); confirmar(); }
+        if (e.key === "Escape") { renderListaBebe(); }
+      });
+      input.addEventListener("blur", confirmar);
+    }
+
+    function renderListaBebe(){
+      const body = root.querySelector("#bebeListaBody");
+      if (!body) return;
+      body.innerHTML = "";
+
+      let presupuestoTotal = 0, totalComprado = 0, totalPendiente = 0, itemsPendientes = 0;
+
+      LISTA_BEBE.forEach(cat => {
+        const catTitulo = document.createElement("div");
+        catTitulo.className = "bebe-categoria";
+        catTitulo.textContent = cat.categoria.toUpperCase();
+        body.appendChild(catTitulo);
+
+        cat.items.forEach(it => {
+          const key = claveBebe(cat, it);
+          const comprado = !!BEBE_COMPRADO[key];
+          const precioFinal = BEBE_PRECIOS[key] != null ? BEBE_PRECIOS[key] : it.precio;
+
+          presupuestoTotal += precioFinal;
+          if (comprado) totalComprado += precioFinal; else { totalPendiente += precioFinal; itemsPendientes++; }
+
+          const row = document.createElement("div");
+          row.className = "bebe-item" + (comprado ? " comprado" : "");
+
+          const check = document.createElement("input");
+          check.type = "checkbox";
+          check.className = "bebe-check";
+          check.checked = comprado;
+          check.onchange = () => {
+            BEBE_COMPRADO[key] = check.checked;
+            guardarComprado();
+            renderListaBebe();
+          };
+          row.appendChild(check);
+
+          const nombreWrap = document.createElement("div");
+          nombreWrap.className = "bebe-nombre";
+          nombreWrap.innerHTML = `<span class="n">${it.nombre}</span><span class="c">${it.cantidad}${it.mensual ? " · recurrente" : ""}</span>`;
+          row.appendChild(nombreWrap);
+
+          const precioSpan = document.createElement("span");
+          precioSpan.className = "bebe-precio" + (BEBE_PRECIOS[key] == null ? " estimado" : "");
+          precioSpan.title = "Toca para ajustar el precio";
+          precioSpan.textContent = clpBebe(precioFinal) + " ✎";
+          precioSpan.onclick = () => activarEdicionPrecioBebe(precioSpan, key, precioFinal);
+          row.appendChild(precioSpan);
+
+          body.appendChild(row);
+        });
+      });
+
+      root.querySelector("#bebePresupuestoTotal").textContent = clpBebe(presupuestoTotal);
+      root.querySelector("#bebeTotalComprado").textContent = clpBebe(totalComprado);
+      root.querySelector("#bebeTotalPendiente").textContent = clpBebe(totalPendiente);
+      root.querySelector("#bebeItemsPendientes").textContent = itemsPendientes;
+    }
+
+    renderListaBebe();
   })();
 
   const days = [
