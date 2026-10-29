@@ -166,6 +166,14 @@
     background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;margin-bottom:6px;
   }
   .inventario-item span:last-child{font-weight:700;color:var(--text);}
+  .docs-layout{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;}
+  .docs-col-lista{flex:1 1 380px;min-width:0;}
+  .docs-col-grafico{flex:1 1 380px;min-width:0;position:sticky;top:16px;}
+  .liq-chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;}
+  .liq-chart-title{font-size:12px;font-weight:700;color:var(--purple);margin-bottom:12px;letter-spacing:.03em;}
+  .liq-chart-wrap{position:relative;width:100%;height:300px;}
+  .liq-chart-wrap svg{width:100%;height:100%;display:block;}
+  @media (max-width:760px){.docs-col-grafico{position:static;flex-basis:100%;}}
   .documento-item{
     display:flex;justify-content:space-between;align-items:center;
     background:var(--card);border:1px solid var(--border);border-radius:8px;
@@ -575,7 +583,19 @@
 </div>
 <div class="panel" id="documentosPanel" style="margin:0 24px 24px;">
   <div class="panel-title" style="color:var(--purple)">DOCUMENTOS ADJUNTOS</div>
-  <div id="documentosLista"></div>
+  <div class="docs-layout">
+    <div id="documentosLista" class="docs-col-lista"></div>
+    <div class="docs-col-grafico">
+      <div class="liq-chart-card">
+        <div class="liq-chart-title">LÍQUIDO A PAGAR POR MES</div>
+        <div class="liq-chart-wrap" id="liqChartWrap"></div>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot" style="background:#3b82f6"></span>Víctor</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#f472b6"></span>Loreto</span>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="watermark">Vxniel</div>
 </div>
@@ -1464,6 +1484,102 @@ function exportarDesgloseLiquidaciones(totalVictor, totalLoreto, totalConjunto){
   doc.save("desglose_liquidaciones.pdf");
 }
 
+const MESES_LIQ = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+function serieLiquidaciones(docs){
+  const out = {};
+  docs.forEach(d => {
+    const m = d.nombre.match(/Liquidaci[oó]n\s+(\w+)\s+(\d{4})/i);
+    if (!m) return;
+    const mi = MESES_LIQ.findIndex(x => x.toLowerCase() === m[1].toLowerCase());
+    if (mi < 0) return;
+    out[`${m[2]}-${String(mi + 1).padStart(2, "0")}`] = extraerMontoDeNota(d.nota);
+  });
+  return out;
+}
+
+function drawLiquidacionesChart(container){
+  container.innerHTML = "";
+  const sV = serieLiquidaciones(DOCUMENTOS.victor);
+  const sL = serieLiquidaciones(DOCUMENTOS.loreto);
+  const keys = [...new Set([...Object.keys(sV), ...Object.keys(sL)])].sort();
+  if (!keys.length) return;
+
+  // meses consecutivos entre el primero y el ultimo (los faltantes quedan como hueco)
+  const [y0, m0] = keys[0].split("-").map(Number);
+  const [y1, m1] = keys[keys.length - 1].split("-").map(Number);
+  const meses = [];
+  for (let y = y0, m = m0; y < y1 || (y === y1 && m <= m1); m++) {
+    if (m > 12) { m = 1; y++; }
+    meses.push(`${y}-${String(m).padStart(2, "0")}`);
+    if (y === y1 && m === m1) break;
+  }
+
+  const W = container.clientWidth || 480, H = 300;
+  const padL = 52, padR = 14, padT = 14, padB = 34;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const maxV = Math.max(...Object.values(sV), ...Object.values(sL), 1);
+  const top = Math.ceil(maxV / 200000) * 200000;
+  const xFor = (i) => padL + (meses.length === 1 ? plotW / 2 : (i / (meses.length - 1)) * plotW);
+  const yFor = (v) => padT + plotH - (v / top) * plotH;
+  const baseY = padT + plotH;
+
+  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}` });
+
+  for (let g = 0; g <= 4; g++) {
+    const gv = (top * g) / 4, gy = yFor(gv);
+    svg.appendChild(svgEl("line", { x1: padL, x2: W - padR, y1: gy, y2: gy, stroke: C.grid, "stroke-dasharray": "3,3" }));
+    const t = svgEl("text", { x: padL - 8, y: gy + 3, "text-anchor": "end", class: "bar-tooltip-label" });
+    t.textContent = clpShort(gv);
+    svg.appendChild(t);
+  }
+
+  meses.forEach((k, i) => {
+    const [yy, mm] = k.split("-").map(Number);
+    const salto = (plotW / meses.length) < 34 ? 2 : 1;
+    if ((meses.length - 1 - i) % salto !== 0) return;
+    const t = svgEl("text", { x: xFor(i), y: H - 16, "text-anchor": "middle", class: "bar-tooltip-label" });
+    t.textContent = MESES_LIQ[mm - 1].slice(0, 3);
+    svg.appendChild(t);
+    if (mm === 1 || i === 0) {
+      const ty = svgEl("text", { x: xFor(i), y: H - 4, "text-anchor": "middle", class: "bar-tooltip-label" });
+      ty.textContent = yy;
+      svg.appendChild(ty);
+    }
+  });
+
+  function dibujarSerie(serie, color, nombre){
+    // tramos continuos (se corta donde falta un mes)
+    const tramos = [];
+    let actual = [];
+    meses.forEach((k, i) => {
+      if (serie[k] != null) actual.push({ i, v: serie[k], k });
+      else if (actual.length) { tramos.push(actual); actual = []; }
+    });
+    if (actual.length) tramos.push(actual);
+
+    tramos.forEach(tr => {
+      if (tr.length > 1) {
+        const pts = tr.map(p => `${xFor(p.i)},${yFor(p.v)}`);
+        const area = `${xFor(tr[0].i)},${baseY} ${pts.join(" ")} ${xFor(tr[tr.length - 1].i)},${baseY}`;
+        svg.appendChild(svgEl("polygon", { points: area, fill: color, "fill-opacity": 0.35 }));
+        svg.appendChild(svgEl("polyline", { points: pts.join(" "), fill: "none", stroke: color, "stroke-width": 2.5 }));
+      }
+    });
+    tramos.flat().forEach(p => {
+      const c = svgEl("circle", { cx: xFor(p.i), cy: yFor(p.v), r: 4, fill: color });
+      const tt = svgEl("title", {});
+      const [yy, mm] = p.k.split("-").map(Number);
+      tt.textContent = `${nombre} · ${MESES_LIQ[mm - 1]} ${yy}: ${clp(p.v)}`;
+      c.appendChild(tt);
+      svg.appendChild(c);
+    });
+  }
+  dibujarSerie(sV, "#3b82f6", "Víctor");
+  dibujarSerie(sL, "#f472b6", "Loreto");
+
+  container.appendChild(svg);
+}
+
 function renderDocumentos(){
   const lista = document.getElementById("documentosLista");
   lista.innerHTML = "";
@@ -1483,6 +1599,8 @@ function renderDocumentos(){
 
   lista.appendChild(secVictor);
   lista.appendChild(secLoreto);
+
+  drawLiquidacionesChart(document.getElementById("liqChartWrap"));
 }
 
 function renderProyectos(){
@@ -1839,7 +1957,11 @@ function renderFondoIndividual(nombreFondo, wrapId){
   }
 }
 
-window.addEventListener("resize", () => { if (document.getElementById("appRoot").style.display !== "none") render(); });
+window.addEventListener("resize", () => {
+  if (document.getElementById("appRoot").style.display !== "none") render();
+  const dr = document.getElementById("documentosRoot");
+  if (dr && dr.style.display !== "none") drawLiquidacionesChart(document.getElementById("liqChartWrap"));
+});
 
 const USUARIOS = { "Victor": "2026", "Loreto": "2026" };
 let usuarioSeleccionado = "Victor";
