@@ -1,0 +1,8 @@
+{
+  "actualizado": "2026-11-15T01:58:00-03:00",
+  "cuentas": {
+    "Luz":      { "monto": 32800, "actualizado": "2026-11-15T01:58:00-03:00", "fuente": "Sencillito (CGE)" },
+    "Agua":     { "monto": 0,     "actualizado": "2026-11-15T01:56:00-03:00", "fuente": "Essbio Pago Express" },
+    "Internet": { "monto": 17986, "actualizado": "2026-11-15T01:57:00-03:00", "fuente": "Sencillito (Movistar)" }
+  }
+}
