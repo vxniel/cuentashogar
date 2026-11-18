@@ -175,6 +175,18 @@
   .liq-chart-wrap{position:relative;width:100%;height:300px;}
   .liq-chart-wrap svg{width:100%;height:100%;display:block;}
   @media (max-width:760px){.docs-col-grafico{position:static;flex-basis:100%;}}
+  .doc-ver-btn{background:var(--card);border:1px solid var(--purple);color:var(--purple);border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;margin-left:10px;}
+  .doc-ver-btn:hover{background:var(--purple);color:#1a1200;}
+  .pdf-modal{position:fixed;inset:0;z-index:3000;background:rgba(5,7,14,.82);display:flex;align-items:center;justify-content:center;padding:12px;}
+  .pdf-modal-box{width:100%;max-width:900px;height:94vh;background:var(--card);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;}
+  .pdf-modal-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);}
+  .pdf-modal-title{flex:1;min-width:0;font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .pdf-modal-head a,.pdf-modal-head button{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none;flex-shrink:0;}
+  .pdf-modal-head a:hover,.pdf-modal-head button:hover{border-color:var(--purple);color:var(--purple);}
+  .pdf-modal-body{flex:1;overflow:auto;background:#2a2f45;padding:12px;display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .pdf-modal-body canvas{width:100%;max-width:820px;height:auto;background:#fff;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.4);}
+  .pdf-modal-msg{color:var(--text-muted);font-size:13px;padding:30px 0;}
+  .pdf-modal-body iframe{width:100%;height:100%;border:0;background:#fff;border-radius:4px;}
   .documento-item{
     display:flex;justify-content:space-between;align-items:center;
     background:var(--card);border:1px solid var(--border);border-radius:8px;
@@ -1250,6 +1262,89 @@ function buildPeriodToggle(){
 document.addEventListener("click", () => {
   if (periodDropdownAbierto) { periodDropdownAbierto = false; buildPeriodToggle(); }
 });
+let pdfJsCargando = null;
+function cargarPdfJs(){
+  if (window.pdfjsLib) return Promise.resolve();
+  if (pdfJsCargando) return pdfJsCargando;
+  pdfJsCargando = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      resolve();
+    };
+    s.onerror = () => { pdfJsCargando = null; reject(new Error("No se pudo cargar el visor de PDF")); };
+    document.head.appendChild(s);
+  });
+  return pdfJsCargando;
+}
+
+function dataUriABytes(uri){
+  const bin = atob(uri.slice(uri.indexOf(",") + 1));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function abrirVisorPdf(doc){
+  const bytes = dataUriABytes(doc.url);
+  const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+
+  const modal = document.createElement("div");
+  modal.className = "pdf-modal";
+  const box = document.createElement("div");
+  box.className = "pdf-modal-box";
+  const head = document.createElement("div");
+  head.className = "pdf-modal-head";
+  head.innerHTML = `<div class="pdf-modal-title"></div>`;
+  head.querySelector(".pdf-modal-title").textContent = doc.nombre;
+  const dl = document.createElement("a");
+  dl.href = blobUrl; dl.download = doc.nombre + ".pdf"; dl.textContent = "↓ Descargar";
+  const cerrarBtn = document.createElement("button");
+  cerrarBtn.type = "button"; cerrarBtn.textContent = "✕ Cerrar";
+  head.appendChild(dl); head.appendChild(cerrarBtn);
+  const body = document.createElement("div");
+  body.className = "pdf-modal-body";
+  body.innerHTML = `<div class="pdf-modal-msg">Cargando documento…</div>`;
+  box.appendChild(head); box.appendChild(body); modal.appendChild(box);
+  document.body.appendChild(modal);
+  document.body.style.overflow = "hidden";
+
+  const cerrar = () => {
+    modal.remove();
+    document.body.style.overflow = "";
+    document.removeEventListener("keydown", onKey);
+    URL.revokeObjectURL(blobUrl);
+  };
+  const onKey = (e) => { if (e.key === "Escape") cerrar(); };
+  document.addEventListener("keydown", onKey);
+  cerrarBtn.onclick = cerrar;
+  modal.addEventListener("click", (e) => { if (e.target === modal) cerrar(); });
+
+  try {
+    await cargarPdfJs();
+    const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+    body.innerHTML = "";
+    const ancho = Math.min(body.clientWidth - 24, 820);
+    const dpr = Math.max(window.devicePixelRatio || 1, 1.5);
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const page = await pdf.getPage(n);
+      const base = page.getViewport({ scale: 1 });
+      const vp = page.getViewport({ scale: (ancho / base.width) * dpr });
+      const canvas = document.createElement("canvas");
+      canvas.width = vp.width; canvas.height = vp.height;
+      body.appendChild(canvas);
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
+    }
+  } catch (err) {
+    // respaldo: visor nativo del navegador
+    body.innerHTML = "";
+    const f = document.createElement("iframe");
+    f.src = blobUrl;
+    body.appendChild(f);
+  }
+}
+
 function buildListaSimple(docs){
   const wrap = document.createElement("div");
   if (!docs.length) {
@@ -1263,7 +1358,10 @@ function buildListaSimple(docs){
     const nombre = document.createElement("div");
     nombre.className = "documento-nombre";
     nombre.textContent = doc.nombre;
-    if (doc.url) {
+    const esPdf = !!(doc.url && doc.url.startsWith("data:application/pdf"));
+    if (esPdf) {
+      nombre.onclick = () => abrirVisorPdf(doc);
+    } else if (doc.url) {
       nombre.onclick = () => window.open(doc.url, "_blank", "noopener,noreferrer");
     }
     left.appendChild(nombre);
@@ -1274,6 +1372,12 @@ function buildListaSimple(docs){
       left.appendChild(nota);
     }
     item.appendChild(left);
+    if (esPdf) {
+      const ver = document.createElement("button");
+      ver.type = "button"; ver.className = "doc-ver-btn"; ver.textContent = "👁 Ver";
+      ver.onclick = () => abrirVisorPdf(doc);
+      item.appendChild(ver);
+    }
     wrap.appendChild(item);
   });
   return wrap;
