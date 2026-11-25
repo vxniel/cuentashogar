@@ -2479,9 +2479,9 @@ document.getElementById("nutriNextMonth").onclick = () => {
 
   // --- Embarazo: fecha estimada de parto (Víctor & Loreto) ---
   (function renderEmbarazo(){
-    const CONCEPCION = new Date(2026, 8, 22); // 22 de septiembre de 2026
-    const FECHA_PARTO = new Date(CONCEPCION.getTime());
-    FECHA_PARTO.setDate(FECHA_PARTO.getDate() + 266); // regla de 266 días desde la concepción
+    const FECHA_PARTO = new Date(2027, 5, 24); // 24 de junio de 2027 (fecha probable de parto actualizada)
+    const CONCEPCION = new Date(FECHA_PARTO.getTime());
+    CONCEPCION.setDate(CONCEPCION.getDate() - 266); // concepción estimada: 266 días antes del parto
 
     const MESES_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
     const formatearFechaEs = (d) => `${d.getDate()} de ${MESES_ES[d.getMonth()]} de ${d.getFullYear()}`;
