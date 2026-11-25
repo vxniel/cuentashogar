@@ -1,24 +1,24 @@
 {
-  "actualizado": "2026-11-24T21:49:00-03:00",
+  "actualizado": "2026-11-24T21:52:00-03:00",
   "cuentas": {
     "Luz": {
       "monto": 32800,
-      "actualizado": "2026-11-24T21:49:00-03:00",
+      "actualizado": "2026-11-24T21:52:00-03:00",
       "fuente": "Sencillito (CGE)"
     },
     "Agua": {
       "monto": 15980,
-      "actualizado": "2026-11-24T21:49:00-03:00",
+      "actualizado": "2026-11-24T21:52:00-03:00",
       "fuente": "Essbio Pago Express"
     },
     "Internet": {
       "monto": 17986,
-      "actualizado": "2026-11-24T21:49:00-03:00",
+      "actualizado": "2026-11-24T21:52:00-03:00",
       "fuente": "Sencillito (Movistar)"
     },
     "Gas": {
       "monto": 27048,
-      "actualizado": "2026-11-24T21:49:00-03:00",
+      "actualizado": "2026-11-24T21:52:00-03:00",
       "fuente": "Gasur"
     }
   }
